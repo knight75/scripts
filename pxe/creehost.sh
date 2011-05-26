@@ -10,10 +10,15 @@ Menu()
 {
  local -a menu fonc
  local titre nbchoix
-TEMPLATEFILE=/opt/scripts/templates/dhcpd.template
-TEMPLATEDIR=/opt/scripts/templates
-DHCPFILE=/etc/dhcp3/dhcpd.conf
-
+HOSTTEMPLATEFILE=/opt/scripts/templates/pxe/dhcpd.template
+TEMPLATEDIR=/opt/scripts/templates/pxe
+DHCPDAEMON=/etc/init.d/isc-dhcp-server
+DHCPFILE=/etc/dhcp/dhcpd.conf
+SUBNETTEMPLATEFILE=/opt/scripts/templates/pxe/dhcpd.template_subnet
+PXEROOTDIR=/srv/tftp/pxelinux.cfg
+PXEREALNAMEDIR=/srv/tftp/pxelinux.cfg/realnames
+PXEDEBIANTEMPLATE=/opt/scripts/templates/pxe/pxedebiantemplate
+PXEREDHATTEMPLATE=/opt/scripts/templates/pxe/pxeredhattemplate
       # Constitution du menu
       if [[ $(( $# % 1 )) -ne 0 ]] ; then
 echo "$0 - Menu invalide" >&2
@@ -53,13 +58,13 @@ done
                  cd $TEMPLATEDIR
                  echo "Veuillez saisir le hostname sans point ni nom de domaine : "
                  read hostname
-#on verifie que le host est bien enregistre au DNS
+                     #on verifie que le host est bien enregistre au DNS
 
-#                      if ! host $hostname >/dev/null 2>&1 ; then
-#                            echo "le host doit etre enregistrer au  DNS pour pouvoir etre cree";
-#                          exit 1
-#                      fi
-#on supprime les . dans le hostname
+                      if ! host $hostname >/dev/null 2>&1 ; then
+                            echo "le host doit etre enregistrer au  DNS pour pouvoir etre cree"
+                          exit 1
+                      fi
+                      #on supprime les . dans le hostname
 
                          hostname2=$(echo $hostname | tr -d '.')   
 
@@ -98,15 +103,43 @@ done
               #sauvegarde du fichier /etc/dhcp/hdcpd.conf
 
               cp $DHCPFILE /opt/scripts/pxe/backup/
+              #si le subnet n'est pas présent dans le dhcpd.conf on le cree
+
+              if ! grep "subnet 10.167.$subnet.0" $DHCPFILE  >/dev/null 2>&1 ; then
+                        echo "le vlan $subnet n'existe pas dans le fichier dhcpd.conf. Nous allons l'ajouter"
+                        cp $SUBNETTEMPLATEFILE /opt/scripts/pxe/hostfiles/dhcpd.conf.$subnet
+                        newsubnetfile=/opt/scripts/pxe/hostfiles/dhcpd.conf.$subnet
+                        sed -i "s/<subnet>/$subnet/g" $newsubnetfile
+                        cat $newsubnetfile >> $DHCPFILE
+              fi
 
              #creation du fichier final
              echo "Ajout de l'hote au dhcp"
 
-             cp $TEMPLATEFILE /opt/scripts/pxe/hostfiles/dhcpd.conf.$hostname2
+             cp $HOSTTEMPLATEFILE /opt/scripts/pxe/hostfiles/dhcpd.conf.$hostname2
              finaldhcpfile=/opt/scripts/pxe/hostfiles/dhcpd.conf.$hostname2 
               sed -i "s/<hostname>/$hostname2/g" $finaldhcpfile
-              sed -i "s/<subnet>/$subnet/g" $finaldhcpfile
+              sed -i "s/<faddress>/$hostname/g" $finaldhcpfile
               sed -i "s/<macaddress>/$macaddress/g" $finaldhcpfile
+
+              while read line
+             do 
+             sed -i "/vlan$subnet/ a \ $line" $DHCPFILE ;
+             done < $finaldhcpfile
+
+             echo "host ajoute"
+
+             echo "redemarrage du serveur dhcp"
+             $DHCPDAEMON restart
+
+             echo "desirez vous creer le fichier pxelinux.cfg/01-macaddress?"
+             read createpxefile
+
+             if [ "$createpxefile" = "y" ]; then
+                     CreePxeFile
+                     exit 1
+                 fi
+  
               exit 1
     }
     #------------------------------------------------
@@ -123,7 +156,44 @@ done
     #------------------------------------------------
     CreePxeFile()
     {
-       echo -e "\n***\n*** CreePxeFile\n***\n"
+       echo "veuillez saisir le nom de la machine sans point ni nom de domaine"
+       read pxehostname
+
+
+       echo "Veuillez selectionner le systeme: Lenny ou Squeeze RHEL4 ou RHEL5"
+       read system
+       pxemacaddress=01-$(cat $DHCPFILE | grep -1 $hostname | grep hardware | awk '{print $3}' | cut -d ";" -f1 | sed "s/:/-/g")
+       case $system in
+       Lenny) echo "le system choisit est Debian Lenny"
+       sed -i "s/<hostname>/$pxehostname/g" $PXEDEBIANTEMPLATE
+       sed -i "s/<system>/$system/g" $PXEDEBIANTEMPLATE
+       echo "Veuillez selectionner l'architecture [32 ou 64 ]"
+       read arch
+
+       sed -i "s/<arch>//g" $PXEDEBIANTEMPLATE
+       
+ ;;
+       R) echo Hello ;;
+       * ) echo "La reponse doit etre D ou R" ;;
+       esac
+
+       echo "Veuillez selectionner l'archtitecture: 64 ou 32 bits :"
+       read system
+       case $system in
+       64 ) echo Bonjour ;;
+       32) echo Hello ;;
+       * ) echo "La reponse doit etre 32 ou 64" ;;
+       esac
+
+
+    cp $PXEDEBIANTEMPLATE /srv/tftp/pxelinux.cfg/$pxemacaddress
+    ln -s /srv/tftp/pxelinux.cfg/$pxemacaddress $PXEREALNAMEDIR/$pxehostname
+    pxerealnamefile=$PXEREALNAMEDIR/$pxehostname
+    echo "le fichiere est cree"
+
+    echo "il reste eventuellement a editer le fichier $pxerealnamefile pour modifier l'url du fichier pressed ou kickstart"
+
+              exit 1
     }
     
     #================================================
