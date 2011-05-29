@@ -149,9 +149,20 @@ done
     #------------------------------------------------
     DhcpAddHosts()
     {
-       echo -e "\n***\n*** AddHosts\n***\n"
+         
+           #Jusqu'a ce que la reponse soit composée par un nombre, j'attends la saisie
+           until [[ ${nombre} =~ ^[0-9]+$ ]]; do
+           echo "Combien de hosts allez-vous ajouter ?"
+           read nombre
+           done
+ 
+           #On éxécute $nombre fois le script d'ajout des hosts
+           for (( i=${nombre}; i>=1; i-- ))
+           do
+ 
+           DhcpAddHost ;
+           done
     }
-    
     
     #------------------------------------------------
     # CreePxeFile - Creation du fichier PXE
