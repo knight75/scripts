@@ -19,7 +19,7 @@ PXEROOTDIR=/srv/tftp/pxelinux.cfg
 PXEREALNAMEDIR=/srv/tftp/pxelinux.cfg/realnames
 PXEDEBIANTEMPLATE=/opt/scripts/templates/pxe/pxedebiantemplate
 PXEREDHATTEMPLATE=/opt/scripts/templates/pxe/pxeredhattemplate
-      # Constitution du menu
+      # We make the menu
       if [[ $(( $# % 1 )) -ne 0 ]] ; then
 echo "$0 - Menu invalide" >&2
          return 1
@@ -34,7 +34,7 @@ titre="$1"
          menu[$nbchoix]="$2"
          shift 2
       done
-      # Affichage menu
+      # menu printing
       PS3="Votre choix ? "
       while :
       do
@@ -51,20 +51,20 @@ done || break
 done
     }
     #------------------------------------------------
-    # DhcpAddHost - Ajout d'un host
+    # DhcpAddHost - Adding a host to the dhcp file and if the user want creation of pxe files
     #------------------------------------------------
     DhcpAddHost()
     {
                  cd $TEMPLATEDIR
                  echo "Veuillez saisir le hostname sans point ni nom de domaine : "
                  read hostname
-                     #on verifie que le host est bien enregistre au DNS
+                     #we check that host is registered in  DNS
 
                       if ! host $hostname >/dev/null 2>&1 ; then
                             echo "le host doit etre enregistre au  DNS pour pouvoir etre cree"
                           exit 1
                       fi
-                      #on supprime les . dans le hostname
+                      #there must be no . in hostname
 
                          hostname2=$(echo $hostname | tr -d '.')   
 
@@ -85,6 +85,7 @@ done
                  exit 1
                  fi
 
+#if informations aree ok add host to dhcpfile and restart dhcp
 
                  echo " veuillez verifier les informations ci-dessous :"
 
