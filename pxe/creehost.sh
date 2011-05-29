@@ -61,7 +61,7 @@ done
                      #on verifie que le host est bien enregistre au DNS
 
                       if ! host $hostname >/dev/null 2>&1 ; then
-                            echo "le host doit etre enregistrer au  DNS pour pouvoir etre cree"
+                            echo "le host doit etre enregistre au  DNS pour pouvoir etre cree"
                           exit 1
                       fi
                       #on supprime les . dans le hostname
@@ -132,11 +132,12 @@ done
              echo "redemarrage du serveur dhcp"
              $DHCPDAEMON restart
 
-             echo "desirez vous creer le fichier pxelinux.cfg/01-macaddress?"
+       pxemacaddress=01-$(cat $DHCPFILE | grep -1 $hostname2 | grep hardware | awk '{print $3}' | cut -d ";" -f1 | sed "s/:/-/g")
+             echo "desirez vous creer le fichier pxelinux.cfg/$pxemacaddress ? [y/n]"
              read createpxefile
 
              if [ "$createpxefile" = "y" ]; then
-                     CreePxeFile
+                     CreePxeFileCommun
                      exit 1
                  fi
   
@@ -157,45 +158,67 @@ done
     CreePxeFile()
     {
        echo "veuillez saisir le nom de la machine sans point ni nom de domaine"
-       read pxehostname
-
-
-       echo "Veuillez selectionner le systeme: Lenny ou Squeeze RHEL4 ou RHEL5"
+       read hostname2
+       pxemacaddress=01-$(cat $DHCPFILE | grep -1 $hostname2 | grep hardware | awk '{print $3}' | cut -d ";" -f1 | sed "s/:/-/g")
+       CreePxeFileCommun
+    }
+    
+    #------------------------------------------------
+    # CreePxeFileCommun - Creation du fichier PXE
+    #------------------------------------------------
+    CreePxeFileCommun()
+    {
+       echo "Veuillez selectionner le systeme: lenny ou squeeze rhel4 ou rhel5"
        read system
-       pxemacaddress=01-$(cat $DHCPFILE | grep -1 $hostname | grep hardware | awk '{print $3}' | cut -d ";" -f1 | sed "s/:/-/g")
        case $system in
-       Lenny) echo "le system choisit est Debian Lenny"
-       sed -i "s/<hostname>/$pxehostname/g" $PXEDEBIANTEMPLATE
-       sed -i "s/<system>/$system/g" $PXEDEBIANTEMPLATE
+       lenny|squeeze)
+       distrib="debian"
+       echo "le system choisit est $distrib $system"
+
+        cp $PXEDEBIANTEMPLATE /opt/scripts/pxe/hostfiles/pxedebianfile.$hostname2
+        finalpxefile=/opt/scripts/pxe/hostfiles/pxedebianfile.$hostname2 
+        sed -i "s/<hostname>/$hostname2/g" $finalpxefile
+        sed -i "s/<system>/$system/g" $finalpxefile
+    ;;
+
+       rhel4|rhel5)
+       distrib="redhat"
+       echo "le system choisit est $distrib $system"
+        cp $PXEREDHATTEMPLATE /opt/scripts/pxe/hostfiles/pxedebianfile.$hostname2
+        finalpxefile=/srv/tftp/pxelinux.cfg/pxeredhatfile.$hostname2
+        sed -i "s/<hostname>/$hostname2/g" $finalpxefile
+        sed -i "s/<system>/$system/g" $finalpxefile
+
+    ;;
+       * ) echo "La reponse doit etre lenny squeeze rhel4 ou rhel5" ;;
+       esac
+
        echo "Veuillez selectionner l'architecture [32 ou 64 ]"
        read arch
-
-       sed -i "s/<arch>//g" $PXEDEBIANTEMPLATE
+       case $arch in
+       32) echo "l'architecture choisie est $arch bits"
+           truearch="i386"
+        sed -i "s/<arch>/$arch/g" $finalpxefile
+        sed -i "s/<truearch>/$truearch/g" $finalpxefile
+    ;;
+       64) echo "l'architecture choisie est $arch bits" 
+           truearch="x86_64"
+        sed -i "s/<arch>/$arch/g" $finalpxefile
+        sed -i "s/<truearch>/$truearch/g" $finalpxefile
+    ;;
+       *)  echo "vous devez saisir 32 ou 64";;
+       esac
        
- ;;
-       R) echo Hello ;;
-       * ) echo "La reponse doit etre D ou R" ;;
-       esac
-
-       echo "Veuillez selectionner l'archtitecture: 64 ou 32 bits :"
-       read system
-       case $system in
-       64 ) echo Bonjour ;;
-       32) echo Hello ;;
-       * ) echo "La reponse doit etre 32 ou 64" ;;
-       esac
-
-
-    cp $PXEDEBIANTEMPLATE /srv/tftp/pxelinux.cfg/$pxemacaddress
-    ln -s /srv/tftp/pxelinux.cfg/$pxemacaddress $PXEREALNAMEDIR/$pxehostname
-    pxerealnamefile=$PXEREALNAMEDIR/$pxehostname
-    echo "le fichiere est cree"
-
-    echo "il reste eventuellement a editer le fichier $pxerealnamefile pour modifier l'url du fichier pressed ou kickstart"
+     cp $finalpxefile /srv/tftp/pxelinux.cfg/$pxemacaddress
+     ln -s /srv/tftp/pxelinux.cfg/$pxemacaddress $PXEREALNAMEDIR/$hostname2
+     pxerealnamefile=$PXEREALNAMEDIR/$hostname2
+     echo "le fichier $pxerealnamefile est cree"
+     cp /opt/scripts/templates/pxe/templatepreseed$system /var/www/pxe/$distrib/$system/$hostname2.cfg 
+     echo "le fichier /var/www/pxe/$system/$hostname2.cfg est cree"
+     echo "il reste eventuellement a editer le fichier $pxerealnamefile pour modifier l'url du fichier pressed ou kickstart"
 
               exit 1
     }
-    
     #================================================
    # M A I N . . .
     #================================================
