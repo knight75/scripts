@@ -58,20 +58,23 @@ done
                  cd $TEMPLATEDIR
                  echo "Veuillez saisir le hostname sans point ni nom de domaine : "
                  read hostname
-                     #on verifie que le host est bien enregistre au DNS
-
-                      if ! host $hostname >/dev/null 2>&1 ; then
-                            echo "le host doit etre enregistre au  DNS pour pouvoir etre cree"
-                          exit 1
-                      fi
                       #on supprime les . dans le hostname
 
-                         hostname2=$(echo $hostname | tr -d '.')   
+                         hostname2=$(echo $hostname | tr -d '.'| tr '[:upper:]' '[:lower:]')   
 
                          if grep -Fi $hostname2 $DHCPFILE >/dev/null 2>&1; then
 	                       echo "le host existe deja";
 	                       exit 1
                          fi
+
+                     #on verifie que le host est bien enregistre au DNS
+
+                      if ! host $hostname2 >/dev/null 2>&1 ; then
+			    echo "$hostname2 n'est pas une entree valide du dns"
+			    echo "Pour memoire, le nom ne doit pas contenir de point ni de majuscule ou de nom de domaine"
+                            echo "le host doit etre enregistre au  DNS pour pouvoir etre cree"
+                          exit 1
+                      fi
 
                  echo "Veuillez saisir l'ip :"
                  read ip
