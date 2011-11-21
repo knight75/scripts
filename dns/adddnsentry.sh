@@ -10,7 +10,10 @@ Menu()
 {
  local -a menu fonc
  local titre nbchoix
-zonesdir=/etc/puppet/modules/dns/files/zones/
+zonesdir=i/etc/puppet/modules/dns/files/zones/
+daydate=$(date --rfc-3339=date | tr -d '-')
+resetcnt="01"
+serialupdated=$(echo $daydate$resetcnt)
       # Constitution du menu
       if [[ $(( $# % 1 )) -ne 0 ]] ; then
 echo "$0 - Menu invalide" >&2
@@ -27,6 +30,7 @@ titre="$1"
          shift 2
       done
       # Affichage menu
+      echo -e "\t\vCe script ne modifie pas directement les fichiers de zones, vous ne risquez donc pas de casser quoique ce soit "
       PS3="Votre choix ? "
       while :
       do
@@ -48,14 +52,14 @@ done
     AddDnsEntry()
     {
                  cd $zonesdir
-		       echo "veuillez entrer le nom de la zone que vous desirez mettre a jour (ex: foo.com)"
+		       echo "veuillez entrer le nom de la zone que vous desirez mettre a jour (ex: example.com)"
 		       read zone
-		       echo "Veuillez saisir le hostname sans point ni nom de domaine (ex: toto et pas toto.foo.com) : "
+		       echo "Veuillez saisir le hostname (ex: toto.example.com) : "
 		       read aname
 		       echo "veuillez saisir l'adresse ip"
 		       read ip
 
-                       if grep -RFi $aname $zoneisdir$zone.direct; then 
+                       if grep -RFi $aname $zonesdir$zone.direct; then 
 			       echo "le host existe deja";
 			       exit 1
 			fi
@@ -73,20 +77,55 @@ done
 	     else
 		     echo "Modifications a apporter:"
 		     echo -e "Dans le fichier $zonesdir$zone.direct"
-		     echo -e "Numero de serie de la zone"
-		     directserial= grep serial $zonesdir$zone.direct
+		     echo -e "Numero de serie actuel de la zone $zone.direct"
+		     directserial=$(grep serial $zonedir$zone.direct | cut -d ";" -f1 | sed 's/ //g')
+		     directserialdate=$(grep serial $zonedir$zone.direct | cut -d ";" -f1 | sed 's/ //g' | cut -c 1-8)
+		     echo -e "\t$directserial"
+		     directserialversionincremente=`expr $directserial + 1` 
 		     echo -e "Entree DNS"
-		     echo -e "\t$aname.$zone. IN A $ip"
+		     echo -e "\t$aname. IN A $ip"
+
+                     #on calcule le temps depuis lequel la zone n'a pas ete mise a jour
+
+		     daydateratio= expr $daydate - $directserialdate 2>&1 > /dev/null
+
+		     # Si la zone a ete mise a jour a une date differente de aujourd'hui, on n'incremente pas le dernier chiffre
+		     #sinon on incremente
+
+                     if [ "$daydateratio" != "0" ]  ; then
+		             echo -e "Numero de serie de la zone $zone.direct a saisir"
+		             echo -e "\t$serialupdated"
+		     else
+		             echo -e "Numero de serie de la zone $zone.direct a saisir"
+		             echo -e "\t$directserialversionincremente"
+    		     fi
+
 
 		     echo -e "\vDans le fichier $zonesdir$zone.inverse"
-		     echo -e "Numero de serie de la zone"
-		     echo -e "Entree DNS"
-		     inverseserial= grep serial $zonesdir$zone.inverse
-		     echo -e "Entree DNS"
-		     echo -e "\t$(echo "$ip" | cut -d '.' -f4).$(echo "$ip" | cut -d '.' -f3).$(echo "$ip" | cut -d '.' -f2).$(echo "$ip" | cut -d '.' -f1).in-addr.arpa. IN PTR $aname.$zone."
+		     echo -e "Numero de serie actuel de la zone $zone.inverse"
+		     inverseserial=$(grep serial $zonedir$zone.inverse | cut -d ";" -f1 | sed 's/ //g')
+		     inverseserialdate=$(grep serial $zonedir$zone.inverse | cut -d ";" -f1 | sed 's/ //g' | cut -c 1-8)
+		     echo -e "\t$inverseserial"
+		     inverseserialversionincremente=`expr $inverseserial + 1` 
 
-                 fi
-exit 0
+		     echo -e "Entree DNS"
+		     echo -e "\t$(echo "$ip" | cut -d '.' -f4).$(echo "$ip" | cut -d '.' -f3).$(echo "$ip" | cut -d '.' -f2).$(echo "$ip" | cut -d '.' -f1).in-addr.arpa. IN PTR $aname."
+
+                     #on calcule le temps depuis lequel la zone n'a pas ete mise a jour
+
+		     daydateratio= expr $daydate - $inverseserialdate 2>&1 > /dev/null
+		     # Si la zone a ete mise a jour a une date differente de aujourd'hui, on n'incremente pas le dernier chiffre
+		     #sinon on incremente
+
+                     if [ "$daydateratio" != "0" ]  ; then
+		             echo -e "Numero de serie de la zone $zone.inverse a saisir"
+		             echo -e "\t$serialupdated"
+		     else
+		             echo -e "Numero de serie de la zone $zone.inverse a saisir"
+		             echo -e "\t$inverseserialversionincremente"
+    		     fi
+    		     fi
+	     exit 0
     }
     #------------------------------------------------
     # DnsAddCname - Ajout de CNAME au dns
@@ -94,9 +133,9 @@ exit 0
     DnsAddCname()
     {
                  cd $zonesdir
-		      echo "veuillez entrer le nom de la zone que vous desirez mettre a jour (ex: foo.com)"
+		      echo "veuillez entrer le nom de la zone que vous desirez mettre a jour (ex: example.com)"
 		      read zone
-		      echo "Veuillez saisir le cname sans point ni nom de domaine (ex: toto et pas toto.foo.com) : "
+		      echo "Veuillez saisir le cname (ex: turlutto.example.com) : "
 		      read cname
 		      echo "vers quel host doit pointer le CNAME ? (sans point ni nom de domaine)"
 		      read hostcnamepointer
@@ -119,22 +158,70 @@ exit 0
 	     else
 		     echo "Modifications a apporter:"
 		     echo -e "Dans le fichier $zonesdir$zone.direct"
-		     echo -e "Numero de serie de la zone"
-		     directserial= grep serial $zonesdir$zone.direct
+		     echo -e "Numero de serie actuel de la zone $zone.direct"
+		     directserial=$(grep serial $zonedir$zone.direct | cut -d ";" -f1 | sed 's/ //g')
+		     directserialdate=$(grep serial $zonedir$zone.direct | cut -d ";" -f1 | sed 's/ //g' | cut -c 1-8)
+		     echo -e "\t$directserial"
+		     directserialversionincremente=`expr $directserial + 1` 
 		     echo -e "Entree DNS"
-		     echo -e "\t$cname.$zone. IN CNAME $hostcnamepointer"
+		     echo -e "\t$cname. IN CNAME $hostcnamepointer"
+
+                     #on calcule le temps depuis lequel la zone n'a pas ete mise a jour
+
+		     daydateratio= expr $daydate - $directserialdate 2>&1 > /dev/null
+
+		     # Si la zone a ete mise a jour a une date differente de aujourd'hui, on n'incremente pas le dernier chiffre
+		     #sinon on incremente
+
+                     if [ "$daydateratio" != "0" ]  ; then
+		             echo -e "Numero de serie de la zone $zone.direct a saisir"
+		             echo -e "\t$serialupdated"
+		     else
+		             echo -e "Numero de serie de la zone $zone.direct a saisir"
+		             echo -e "\t$directserialversionincremente"
+    		     fi
 
                  fi
 exit 0
     }
-    
     #------------------------------------------------
-    # Coucou - Blagounette RFM
+    # ModifHost - Modifier ou supprimer une entree
     #------------------------------------------------
-    Coucou()
+    ModifHost()
     {
-       echo "Read The Fucking Menu!!!!!!!"
+		 echo "veuillez entrer le nom de la zone que vous desirez mettre a jour (ex: example.com)"
+		 read zone
+		 echo -e "\vQuelle entree desirez-vous modifier?"
+		 read entree
+
+		 if grep -R $entree $zonesdir$zone.* 2>&1 > /dev/null ;
+		 then
+		              echo -e "Numero de serie actuel de la zone $zone.direct"
+		              directserial=$(grep serial $zonesdir$zone.direct | cut -d ";" -f1 | sed 's/ //g')
+		              directserialdate=$(grep serial $zonesdir$zone.direct | cut -d ";" -f1 | sed 's/ //g' | cut -c 1-8)
+		              echo -e "\t$directserial"
+		              directserialversionincremente=`expr $directserial + 1` 
+
+			      echo -e "\t\vFichiers a modifier\t\t\t\t\tpartie a modifier"
+			      modifs= grep -R  $entree $zonesdir$zone.* | awk -F : 'BEGIN{OFS="\t"} {$1=$1; print $0}' 
+			      echo -e "\t\v$modifs"
+
+                              #on calcule le temps depuis lequel la zone n'a pas ete mise a jour
+
+		              daydateratio= expr $daydate - $directserialdate 2>&1 > /dev/null
+
+		             # Si la zone a ete mise a jour a une date differente de aujourd'hui, on n'incremente pas le dernier chiffre
+		             #sinon on incremente
+
+                      if [ "$daydateratio" != "0" ]  ; then
+		             echo -e "Numero de serie de la zone $zone.direct a saisir"
+		             echo -e "\t$serialupdated"
+		     fi
+
+	   fi
+		 exit
     }
+
     
     #================================================
    # M A I N . . .
@@ -143,4 +230,4 @@ exit 0
       "############################### Ajout Entrees au DNS #################################################" \
        AddDnsEntry "Ajouter une entree au DNS" \
        DnsAddCname "Ajouter un CNAME au DNS" \
-       Coucou "Si vous tapez 3 c'est que vous n'avez pas pris la peine de lire ce menu" \
+       ModifHost "modifier ou supprimer une entree dns (CNAME, A)" \
