@@ -1,0 +1,1 @@
+rarfile=$(find $rardir -maxdepth 1 -iname '*part1*')
