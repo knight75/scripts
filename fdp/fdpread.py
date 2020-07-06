@@ -19,7 +19,7 @@ docxfiles = pathlib.Path("./bbdocs/").glob("*.docx")
 for f in docxfiles:
     try:
         fulltext = fdp(f)
-        testf = re.findall(r'Contexte\s*:(.*)\s*Missions', fulltext, re.DOTALL)
-        print(testf)
+        context = re.findall(r'Contexte\s*:(.*)\s*Missions', fulltext, re.DOTALL)
+        jobname = re.findall(r'du poste\s*:(.*)\s\n*N° Visi', fulltext, re.DOTALL)
     except IOError:
         print('Error opening',f)
