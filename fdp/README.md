@@ -14,9 +14,3 @@ Run the command:
 ```python
 ./fdpread.py
 ```
-
-```ruby
-require 'redcarpet'
-markdown = Redcarpet.new("Hello World!")
-puts markdown.to_html
-```
