@@ -4,6 +4,7 @@ import docx
 import pathlib
 import glob
 import re
+import fdpwriter
 
 def fdp(f1):
     freader = docx.Document(f1)  # Read Docx files.
@@ -21,5 +22,6 @@ for f in docxfiles:
         fulltext = fdp(f)
         context = re.findall(r'Contexte\s*:(.*)\s*Missions', fulltext, re.DOTALL)
         jobname = re.findall(r'du poste\s*:(.*)\s\n*N° Visi', fulltext, re.DOTALL)
+        fdpwriter.fdpwrite(context,jobname,f)
     except IOError:
         print('Error opening',f)
